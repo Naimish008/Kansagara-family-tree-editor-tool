@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="gu"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2f6f5e">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>કણસાગરા પરિવાર વંશ વૃક્ષ સુધારા ટૂલ</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#faf8f4;--sf:#fff;--tx:#1f2328;--mu:#6b7280;--bd:#e3ded4;--ac:#2f6f5e;--ac2:#e8f2ee;--dn:#b42318}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#17181a;--sf:#222426;--tx:#ececec;--mu:#9aa0a6;--bd:#383b3f;--ac:#5fb59d;--ac2:#1f3029;--dn:#f08a80}}
+:root[data-theme="dark"]{--bg:#17181a;--sf:#222426;--tx:#ececec;--mu:#9aa0a6;--bd:#383b3f;--ac:#5fb59d;--ac2:#1f3029;--dn:#f08a80}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,"Noto Sans Gujarati",sans-serif}
+.w{max-width:760px;margin:0 auto;padding:14px}
+h1{font-size:19px;margin:4px 0 12px}
+button,input,select{font:inherit;color:var(--tx)}
+input,select{width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--sf)}
+button{padding:8px 12px;border:1px solid var(--bd);border-radius:8px;background:var(--sf);cursor:pointer;white-space:nowrap}
+button.p{background:var(--ac);border-color:var(--ac);color:#fff}
+button.d{color:var(--dn)}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center}
+.bar input{flex:1;min-width:140px}
+.li,.pi{padding:10px 12px;border:1px solid var(--bd);border-radius:10px;background:var(--sf);margin-bottom:6px;cursor:pointer;display:flex;justify-content:space-between;gap:8px}
+.li:hover,.pi:hover{border-color:var(--ac)}
+ul.lg{padding-left:20px;margin:6px 0 12px}ul.lg li{margin-bottom:6px}
+.mu{color:var(--mu);font-size:13px}
+.drop{border:2px dashed var(--bd);border-radius:12px;padding:28px 14px;text-align:center;background:var(--sf)}
+.tabs{display:flex;gap:6px;margin-bottom:10px}
+.tabs button.on{background:var(--ac2);border-color:var(--ac)}
+.card{border:1px solid var(--bd);border-radius:12px;background:var(--sf);padding:12px;margin-bottom:10px}
+.card b{display:block;margin-bottom:6px}
+.g{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.g label{display:block;font-size:13px;color:var(--mu);margin-bottom:3px}
+.chip{display:inline-block;padding:4px 10px;border-radius:99px;background:var(--ac2);margin:2px 4px 2px 0;font-size:14px;cursor:pointer}
+.tr{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:5px 6px;border-left:2px solid var(--bd);margin-bottom:3px;border-radius:4px}
+.tr.hit{background:var(--ac2);border-left-color:var(--ac)}
+.tr .n{color:var(--ac);font-weight:600}
+.tr .nm{cursor:pointer;flex:0 1 auto}
+.tr .nm:hover{text-decoration:underline}
+.tg{width:30px;height:30px;padding:0;font-size:15px;flex:none}
+.tg0{width:30px;flex:none}
+#st{font-size:13px}
+.ft{margin:22px 0 8px;padding-top:12px;border-top:1px solid var(--bd);text-align:center;font-size:12.5px;color:var(--mu);line-height:1.6}
+#msg{font-size:13px;color:var(--mu);min-height:18px;margin-bottom:6px}
+@media(max-width:480px){.g{grid-template-columns:1fr}}
+</style></head><body><div class="w">
+<h1>કણસાગરા પરિવાર વંશ વૃક્ષ સુધારા ટૂલ</h1>
+<div id="st" class="mu" style="margin:-6px 0 8px"></div>
+<div id="msg"></div>
+<div id="app"></div>
+<div class="ft">સંકલન: કણસાગરા પરિવાર દેવભુવન સમિતિ<br>Designed by Naimish Chandrakant Kansagara</div>
+</div>
+<script>
+let started=false,recs=[],head=[],trailer=[],fname='family.ged',view='list',sel=null,q='',dirty=false,root='all',armed=false,open=new Set(),treeInit=false,tq='',form={n:'',f:'',g:'',root:false},pend=null,changes=[],orig=new Map();
+const $=s=>document.querySelector(s),app=$('#app');
+const nz=s=>(s||'').normalize('NFC').toLowerCase().trim();
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const say=t=>{$('#msg').textContent=t||''};
+
+function parse(text){
+  text=text.replace(/^\uFEFF/,'');changes=[];orig=new Map();
+  const out=[];let cur=null;
+  for(const raw of text.split(/\r?\n/)){
+    const m=raw.match(/^\s*(\d+)\s+(?:(@[^@]+@)\s+)?(\S+)(?:\s(.*))?$/);
+    if(!m)continue;
+    const L={l:+m[1],x:m[2]||'',t:m[3],v:m[4]||''};
+    if(L.l===0){cur={id:L.x,type:L.t,v:L.v,lines:[]};out.push(cur)}
+    else if(cur)cur.lines.push(L);
+  }
+  head=[];trailer=[];
+  recs=out.filter(r=>{if(r.type==='HEAD'){head.push(r);return false}if(r.type==='TRLR'){trailer.push(r);return false}return true});
+}
+const CH=150;
+const recText=r=>{let s=`0 ${r.id?r.id+' ':''}${r.type}${r.v?' '+r.v:''}\n`;for(const L of r.lines)s+=`${L.l} ${L.x?L.x+' ':''}${L.t}${L.v!==''?' '+L.v:''}\n`;return s};
+const allRecs=()=>[...head,...recs,...(trailer.length?trailer:[{id:'',type:'TRLR',v:'',lines:[]}])];
+const ser=()=>allRecs().map(recText).join('');
+function chunks(){const rs=allRecs().map(recText),o=[];for(let i=0;i<rs.length;i+=CH)o.push(rs.slice(i,i+CH).join(''));return o}
+let _m=null,_r=null,_n=-1,_fo=null;
+function ix(){if(_r!==recs||_n!==recs.length){_m=new Map();_fo=new Map();recs.forEach(r=>{_m.set(r.id,r)});recs.forEach(f=>{if(f.type!=='FAM')return;for(const L of f.lines)if(L.l===1&&(L.t==='HUSB'||L.t==='WIFE')){if(!_fo.has(L.v))_fo.set(L.v,[]);const a=_fo.get(L.v);if(!a.includes(f))a.push(f)}});_r=recs;_n=recs.length}}
+const byId=id=>{ix();return _m.get(id)};
+const indis=()=>recs.filter(r=>r.type==='INDI');
+const fams=()=>recs.filter(r=>r.type==='FAM');
+const L1=(r,t)=>r.lines.filter(L=>L.l===1&&L.t===t);
+const val=(r,t)=>{const a=L1(r,t)[0];return a?a.v:''};
+function nm(r){const n=val(r,'NAME');const m=n.match(/^(.*?)\s*\/(.*?)\/\s*(.*)$/);return m?{g:(m[1]+' '+m[3]).trim(),s:m[2].trim()}:{g:n.trim(),s:''}}
+const full=r=>nm(r).g||'(નામ નથી)';
+const dad=r=>{const f=famc(r);if(!f)return null;const h=byId(val(f,'HUSB'));return h&&h!==r?h:null};
+const lin=r=>{const p=dad(r);if(!p)return '';const g=dad(p);return 'પિતા: '+full(p)+(g&&g!==r?' • દાદા: '+full(g):'')};
+function setName(r,g,s){
+  g=g.trim();s=s.trim();
+  const v=s?`${g} /${s}/`:g;
+  const i=r.lines.findIndex(L=>L.l===1&&L.t==='NAME');
+  if(i<0){r.lines.unshift({l:1,x:'',t:'NAME',v});return}
+  r.lines[i].v=v;
+  let j=i+1;while(j<r.lines.length&&r.lines[j].l>1){if(r.lines[j].l===2&&(r.lines[j].t==='GIVN'||r.lines[j].t==='SURN'))r.lines.splice(j,1);else j++}
+}
+function nextId(p){let n=1;const s=new Set(recs.map(r=>r.id));while(s.has(`@${p}${n}@`))n++;return `@${p}${n}@`}
+const slot=r=>val(r,'SEX')==='F'?'WIFE':'HUSB';
+const famsOf=r=>{ix();return _fo.get(r.id)||[]};
+const famc=r=>byId(val(r,'FAMC'));
+const kids=r=>famsOf(r).flatMap(f=>L1(f,'CHIL').map(L=>L.v)).filter(id=>byId(id));
+const brothers=r=>{const f=famc(r);return f?L1(f,'CHIL').map(L=>L.v).filter(id=>id!==r.id&&byId(id)):[]};
+function newPerson(name,sex){const id=nextId('I');const p={id,type:'INDI',v:'',lines:[{l:1,x:'',t:'NAME',v:name.trim()}]};if(sex)p.lines.push({l:1,x:'',t:'SEX',v:sex});recs.push(p);changes.push({k:'add',id,t:Date.now()});return p}
+function newFam(){const f={id:nextId('F'),type:'FAM',v:'',lines:[]};recs.push(f);return f}
+function addSon(r,name){
+  let f=famsOf(r)[0];
+  if(!f){f=newFam();f.lines.push({l:1,x:'',t:slot(r),v:r.id});r.lines.push({l:1,x:'',t:'FAMS',v:f.id})}
+  const n=newPerson(name,'M');
+  f.lines.push({l:1,x:'',t:'CHIL',v:n.id});n.lines.push({l:1,x:'',t:'FAMC',v:f.id});touch();return n;
+}
+function addBrother(r,name){
+  let f=famc(r);
+  if(!f){f=newFam();f.lines.push({l:1,x:'',t:'CHIL',v:r.id});r.lines.push({l:1,x:'',t:'FAMC',v:f.id})}
+  const n=newPerson(name,'M');
+  f.lines.push({l:1,x:'',t:'CHIL',v:n.id});n.lines.push({l:1,x:'',t:'FAMC',v:f.id});touch();return n;
+}
+function delPerson(r){
+  const wn=changes.findIndex(c=>c.k==='add'&&c.id===r.id);
+  if(wn>=0)changes.splice(wn,1);else changes.push({k:'del',name:full(r),lin:lin(r),t:Date.now()});
+  orig.delete(r.id);
+  const id=r.id;recs=recs.filter(x=>x!==r);
+  recs.forEach(x=>{x.lines=x.lines.filter(L=>!(L.l===1&&['HUSB','WIFE','CHIL','FAMS','FAMC'].includes(L.t)&&L.v===id))});
+  recs=recs.filter(x=>!(x.type==='FAM'&&!x.lines.some(L=>L.l===1&&['HUSB','WIFE','CHIL'].includes(L.t))));
+  recs.forEach(x=>{if(x.type==='INDI')x.lines=x.lines.filter(L=>!(L.l===1&&(L.t==='FAMS'||L.t==='FAMC')&&!byId(L.v)))});
+  touch();
+}
+
+const nn_=s=>nz(s).replace(/\s+/g,' ');
+const sameN=(r,x)=>nn_(nm(r).g)===nn_(x);
+const hasN=(r,x)=>nn_(nm(r).g).includes(nn_(x));
+function cands(x,gx,exact){
+  const t=exact?sameN:hasN;
+  return indis().filter(r=>{if(val(r,'SEX')==='F'||!t(r,x))return false;const d=dad(r);return gx?(!!d&&t(d,gx)):!d});
+}
+const itemHtml=p=>`<span>${esc(full(p))}${lin(p)?`<br><span class="mu">${esc(lin(p))}</span>`:''}</span><span class="mu">પુત્રો: ${kids(p).length}</span>`;
+function placeUnder(p,n,extra,force){
+  if(!force&&kids(p).some(id=>sameN(byId(id),n))){
+    pend={title:`${full(p)} ના પુત્રોમાં "${n}" નામ પહેલેથી છે. છતાં નવી વ્યક્તિ તરીકે ઉમેરવું?`,items:[{html:'<span>હા, ઉમેરો</span>',act:()=>placeUnder(p,n,extra,true)}]};
+    return render();
+  }
+  addSon(p,n);
+  form={n:'',f:'',g:'',root:false};pend=null;q=n;
+  say(`✓ "${n}" ઉમેરાયું — ${full(p)}${lin(p)?' ('+lin(p)+')':''} ના પુત્ર તરીકે.${extra||''}`);
+  render();
+}
+function choose(list,n,title){
+  pend={title,items:list.map(p=>({html:itemHtml(p),act:()=>placeUnder(p,n)}))};render();
+}
+function addNew(){
+  const n=form.n.trim(),f=form.f.trim(),g=form.g.trim();
+  if(!n)return say('નામ લખો.');
+  if(form.root||!indis().length){
+    newPerson(n,'M');touch();form={n:'',f:'',g:'',root:false};pend=null;q=n;
+    say(`✓ "${n}" મૂળ પુરુષ તરીકે ઉમેરાયું.`);return render();
+  }
+  if(!f)return say('પિતાનું નામ લખો. (મૂળ પુરુષ હોય તો નીચેનું ખાનું ટીક કરો)');
+  const ex=cands(f,g,true);
+  if(ex.length===1)return placeUnder(ex[0],n);
+  if(ex.length>1)return choose(ex,n,`"${f}" નામના એકથી વધુ પિતા મળ્યા. સાચા પિતા પસંદ કરો:`);
+  const lo=cands(f,g,false);
+  if(lo.length)return choose(lo,n,`"${f}" નામ બરાબર મળ્યું નથી. મળતા નામોમાંથી સાચા પિતા પસંદ કરો:`);
+  if(g){
+    let gs=indis().filter(r=>val(r,'SEX')!=='F'&&sameN(r,g));
+    if(!gs.length)gs=indis().filter(r=>val(r,'SEX')!=='F'&&hasN(r,g));
+    if(gs.length){
+      pend={title:`પિતા "${f}" આંબામાં મળ્યા નથી. તેમને કયા દાદા હેઠળ નવા પિતા તરીકે ઉમેરવા? દાદા પસંદ કરો:`,
+        items:gs.map(gp=>({html:itemHtml(gp),act:()=>{const nf=addSon(gp,f);placeUnder(nf,n,` (નવા પિતા "${f}" પણ ${full(gp)} હેઠળ ઉમેરાયા.)`)}}))};
+      return render();
+    }
+    return say('પિતા અને દાદા — બંનેમાંથી એકેય નામ આંબામાં મળ્યું નથી. નામ ચકાસો. કંઈ ઉમેરાયું નથી.');
+  }
+  say(`"${f}" નામના પિતા (દાદા વગરના) મળ્યા નથી. દાદાનું નામ લખો. કંઈ ઉમેરાયું નથી.`);
+}
+const pendHtml=()=>pend?`<div class="card"><b>${esc(pend.title)}</b>${pend.items.map((it,i)=>`<div class="pi" data-p="${i}">${it.html}</div>`).join('')}<button id="pc">રદ કરો</button></div>`:'';
+const addForm=()=>`<div class="card"><b>નવી વ્યક્તિ ઉમેરો</b>
+<div style="margin-bottom:8px"><label class="mu" style="display:block;margin-bottom:3px">નામ</label><input id="nn" value="${esc(form.n)}" placeholder="નવી વ્યક્તિનું નામ"></div>
+<div class="g"><div><label>પિતાનું નામ</label><input id="fn" value="${esc(form.f)}"${form.root?' disabled':''}></div><div><label>દાદાનું નામ</label><input id="gn" value="${esc(form.g)}"${form.root?' disabled':''}></div></div>
+<label class="mu" style="display:flex;gap:6px;align-items:center;margin:8px 0 2px"><input type="checkbox" id="rt" style="width:auto"${form.root?' checked':''}>મૂળ પુરુષ (પિતા/દાદા નોંધાયેલા નથી)</label>
+<div class="mu" style="margin-bottom:8px">પિતાના પિતા ન હોય તો દાદાનું નામ ખાલી રાખો.</div>
+<button class="p" id="add">+ ઉમેરો</button></div>${pendHtml()}`;
+function bindAdd(){
+  const sync=()=>{form.n=$('#nn').value;form.f=$('#fn').value;form.g=$('#gn').value};
+  ['#nn','#fn','#gn'].forEach(k=>{$(k).oninput=sync;$(k).onkeydown=e=>{if(e.key==='Enter'){sync();addNew()}}});
+  $('#rt').onchange=e=>{sync();form.root=e.target.checked;$('#fn').disabled=$('#gn').disabled=form.root};
+  $('#add').onclick=()=>{sync();addNew()};
+  app.querySelectorAll('[data-p]').forEach(d=>d.onclick=()=>pend.items[+d.dataset.p].act());
+  const pc=$('#pc');if(pc)pc.onclick=()=>{pend=null;render()};
+  const f0=app.querySelector('[data-p]');if(f0)f0.scrollIntoView({block:'center'});
+}
+function chg(){
+  const adds=changes.filter(c=>c.k==='add'&&byId(c.id));
+  const rens=[...orig].filter(([id,o])=>{const r=byId(id);return r&&nm(r).g!==o&&!adds.some(a=>a.id===id)});
+  const dels=changes.filter(c=>c.k==='del');
+  return {adds,rens,dels};
+}
+const chgN=()=>{const c=chg(),n=c.adds.length+c.rens.length+c.dels.length;return n?` (${n})`:''};
+function logHtml(){
+  const {adds,rens,dels}=chg();
+  const tm=t=>new Date(t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  const sub=t=>t?`<br><span class="mu">${esc(t)}</span>`:'';
+  const sec=(t,n,b)=>n?`<div class="card"><b>${t} (${n})</b>${b}</div>`:'';
+  const head=`<div class="card"><b>આ સત્રમાં તમે કરેલા સુધારા</b><div class="mu">ફાઇલમાં તમે ઉમેરેલી, નામ બદલેલી અને કાઢી નાખેલી વ્યક્તિઓની યાદી. આ યાદી ફક્ત હાલના સત્ર માટે છે; પેજ રિફ્રેશ કરવાથી ભૂંસાઈ જશે, એટલે ફેરફાર ડાઉનલોડ કરવાનું ભૂલશો નહીં.</div></div>`;
+  const empty=(adds.length+rens.length+dels.length)?'':'<p class="mu">હજી સુધી કોઈ સુધારો કર્યો નથી.</p>';
+  return head+empty+
+    sec('➕ ઉમેરેલી વ્યક્તિઓ',adds.length,adds.slice().reverse().map(c=>{const r=byId(c.id);return `<div class="li" data-id="${esc(c.id)}"><span>${esc(full(r))}${sub(lin(r)||'મૂળ પુરુષ / પિતા જોડાયેલા નથી')}</span><span class="mu">${tm(c.t)}</span></div>`}).join(''))+
+    sec('✎ નામ બદલ્યા',rens.length,rens.map(([id,o])=>{const r=byId(id);return `<div class="li" data-id="${esc(id)}"><span><s class="mu">${esc(o)}</s> → ${esc(full(r))}${sub(lin(r))}</span></div>`}).join(''))+
+    sec('🗑 કાઢી નાખેલી વ્યક્તિઓ',dels.length,dels.slice().reverse().map(c=>`<div class="li" style="cursor:default"><span>${esc(c.name)}${sub(c.lin)}</span><span class="mu">${tm(c.t)}</span></div>`).join(''));
+}
+
+let saved=[];
+const st=(t,c)=>{const e=$('#st');e.textContent=t;e.style.color=c||''};
+function touch(){dirty=true;st('● ફેરફાર થયા છે, હજી ડાઉનલોડ થયા નથી','var(--dn)')}
+function boot(){render()}
+async function download(){
+  const base=fname.replace(/\.[^.]+$/,'').replace(/-edited$/,'');
+  const name=base+'-edited.ged',blob=new Blob([ser()],{type:'application/octet-stream'});
+  if(window.claude){
+    try{const d=await claude.use('downloads');if(d){await d.save({filename:name+'.txt',data:blob});dirty=false;st('✓ ડાઉનલોડ થયું','var(--ac)');say('સેવ થયું. ફાઇલનું નામ .txt થી .ged કરી લેજો.');return}}
+    catch(e){if(e&&e.code==='declined')return say('સેવ રદ કર્યું.')}
+  }
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+  dirty=false;st('✓ ડાઉનલોડ થયું','var(--ac)');say('ડાઉનલોડ શરૂ થયું: '+name+' (ડાઉનલોડ ફોલ્ડરમાં જુઓ)');
+}
+
+function start(){
+  app.innerHTML=`<div class="drop"><p>તમારી <b>.ged</b> ફાઇલ પસંદ કરો</p><input type="file" id="fi"><p class="mu">ફાઇલ તમારા બ્રાઉઝરમાં જ ખુલે છે.</p></div>
+  <p style="text-align:center"><button id="nw">નવી ખાલી ફાઇલ શરૂ કરો</button></p>`;
+  $('#fi').onchange=e=>{const f=e.target.files[0];if(!f)return;fname=f.name.replace(/\.[^.]+$/,'')+'.ged';
+    const rd=new FileReader();rd.onload=()=>{parse(rd.result);if(!recs.length){say('કોઈ રેકોર્ડ મળ્યા નથી. ફાઇલ UTF-8 GEDCOM હોવી જોઈએ.');return}started=true;say(`${indis().length} વ્યક્તિઓ લોડ થઈ.`);dirty=false;st('');render()};rd.readAsText(f,'utf-8')};
+  $('#nw').onclick=()=>{head=[{id:'',type:'HEAD',v:'',lines:[{l:1,x:'',t:'GEDC',v:''},{l:2,x:'',t:'VERS',v:'5.5.1'},{l:1,x:'',t:'CHAR',v:'UTF-8'}]}];recs=[];trailer=[];changes=[];orig=new Map();started=true;say('નવી ફાઇલ શરૂ થઈ.');touch();render()};
+}
+function render(){
+  armed=false;
+  if(!started)return start();
+  if(sel)return renderEdit();
+  const tabs=`<div class="tabs"><button data-v="list" class="${view==='list'?'on':''}">વ્યક્તિઓ (${indis().length})</button><button data-v="tree" class="${view==='tree'?'on':''}">ક્રમબદ્ધ વંશ</button><button data-v="log" class="${view==='log'?'on':''}">સુધારાની વિગતો${chgN()}</button></div>`;
+  const tools=`<div class="bar"><button class="p" id="dl">⬇ અધ્યતન .ged ડાઉનલોડ</button><button id="cp">કોપી</button></div>`;
+  if(view==='list'){
+    app.innerHTML=tabs+`${addForm()}
+    <div class="bar"><input type="search" id="q" placeholder="શોધો…" lang="gu" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(q)}"></div><div id="lres"></div>`+tools;
+    const fillList=()=>{
+      const ql=nz(q);
+      const rows=indis().filter(r=>!ql||nz(full(r)).includes(ql));
+      $('#lres').innerHTML=(rows.slice(0,300).map(r=>`<div class="li" data-id="${esc(r.id)}"><span>${esc(full(r))}${lin(r)?`<br><span class="mu">${esc(lin(r))}</span>`:''}</span><span class="mu">${esc(r.id)}</span></div>`).join('')||'<p class="mu">કંઈ મળ્યું નથી.</p>')+
+      (rows.length>300?'<p class="mu">પહેલા 300 બતાવ્યા છે. શોધ વડે ફિલ્ટર કરો.</p>':'');
+      app.querySelectorAll('.li').forEach(d=>d.onclick=()=>{sel=d.dataset.id;render()});
+    };
+    fillList();
+    $('#q').oninput=e=>{q=e.target.value;fillList()};
+    bindAdd();
+  }else if(view==='log'){
+    app.innerHTML=tabs+logHtml()+tools;
+    app.querySelectorAll('.li[data-id]').forEach(d=>d.onclick=()=>{sel=d.dataset.id;render()});
+  }else{
+    const isRoot=r=>!famc(r)&&!(slot(r)==='WIFE'&&famsOf(r).some(f=>byId(val(f,'HUSB'))));
+    app.innerHTML=tabs+`<div class="bar"><input type="search" id="tq" placeholder="વંશમાં નામ શોધો…" lang="gu" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(tq)}"></div><div id="tres"></div>`+tools;
+    const fillTree=()=>{
+      const roots=indis().filter(isRoot);
+      if(!treeInit){roots.forEach(r=>open.add(r.id));treeInit=true}
+      const opts=`<option value="all">બધા મૂળ પુરુષ/વ્યક્તિ (${roots.length})</option>`+indis().map(r=>`<option value="${esc(r.id)}"${root===r.id?' selected':''}>${esc(full(r)+(lin(r)?' — '+lin(r):''))}</option>`).join('');
+      const seen=new Set();
+      const build=(id,d,num)=>{const r=byId(id);if(!r||seen.has(id))return null;seen.add(id);const nd={id,d,num,name:full(r),lin:lin(r),ch:[]};kids(r).forEach((c,i)=>{const x=build(c,d+1,num+'.'+(i+1));if(x)nd.ch.push(x)});return nd};
+      const list=root==='all'?roots:[byId(root)].filter(Boolean);
+      const trees=list.map((r,i)=>build(r.id,0,String(i+1))).filter(Boolean);
+      const tl=nz(tq);
+      let total=0,found=0;
+      const hit=nd=>{nd.m=!!tl&&nz(nd.name).includes(tl);nd.s=nd.m;nd.ch.forEach(c=>{if(hit(c))nd.s=true});return nd.s};
+      const cnt=nd=>1+nd.ch.reduce((a,c)=>a+cnt(c),0);
+      trees.forEach(t=>{total+=cnt(t);if(tl)hit(t)});
+      const draw=nd=>{
+        if(tl&&!nd.s)return '';
+        if(nd.m)found++;
+        const has=nd.ch.length>0,isOpen=tl?true:open.has(nd.id);
+        let h=`<div class="tr${nd.m?' hit':''}" style="margin-left:${Math.min(nd.d,10)*14}px">`+
+          (has?`<button class="tg" data-t="${esc(nd.id)}" title="${isOpen?'બંધ કરો':'ખોલો'}"${tl?' disabled':''}>${isOpen?'▾':'▸'}</button>`:'<span class="tg0"></span>')+
+          `<span class="n">${nd.num}</span><span class="nm" data-id="${esc(nd.id)}">${esc(nd.name)}</span>`+(nd.m&&nd.lin?`<span class="mu">(${esc(nd.lin)})</span>`:'')+
+          (has?`<span class="mu">(${nd.ch.length})</span>`:'')+`<span class="mu">પેઢી ${nd.d+1}</span></div>`;
+        if(has&&isOpen)nd.ch.forEach(c=>{h+=draw(c)});
+        return h;
+      };
+      const body=trees.map(draw).join('')||`<p class="mu">${tl?'કોઈ પરિણામ મળ્યું નથી.':'કોઈ વ્યક્તિ નથી.'}</p>`;
+      $('#tres').innerHTML=`<div class="bar"><select id="rs" style="flex:1">${opts}</select></div>
+      <div class="bar"><button id="ea">▾ બધા ખોલો</button><button id="ca">▸ બધા બંધ કરો</button></div>
+      <p class="mu">${tl?`${found} પરિણામ`:`કુલ ${total} વ્યક્તિઓ`}. ▸/▾ થી ખોલ-બંધ કરો, નામ પર ક્લિક કરી એડિટ કરો.</p>`+body;
+      $('#rs').onchange=e=>{root=e.target.value;fillTree()};
+      $('#ea').onclick=()=>{const w=n=>{if(n.ch.length)open.add(n.id);n.ch.forEach(w)};trees.forEach(w);fillTree()};
+      $('#ca').onclick=()=>{open.clear();fillTree()};
+      app.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{const i=b.dataset.t,y=scrollY;open.has(i)?open.delete(i):open.add(i);fillTree();scrollTo(0,y)});
+      app.querySelectorAll('.nm').forEach(d=>d.onclick=()=>{sel=d.dataset.id;render()});
+    };
+    fillTree();
+    $('#tq').oninput=e=>{tq=e.target.value;fillTree()};
+  }
+  app.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>{view=b.dataset.v;pend=null;render()});
+  $('#dl').onclick=download;$('#cp').onclick=()=>navigator.clipboard.writeText(ser()).then(()=>say('ટેક્સ્ટ કોપી થયો.'),()=>say('કોપી ન થઈ.'));
+}
+const chips=(ids,a)=>ids.map(id=>`<span class="chip" data-o="${esc(id)}">${esc(full(byId(id)))}</span>`).join('')||'<span class="mu">કોઈ નથી</span>';
+function renderEdit(){
+  const r=byId(sel);if(!r){sel=null;return render()}
+  const n=nm(r),ks=kids(r),bs=brothers(r);
+  app.innerHTML=`<div class="bar"><button id="bk">← પાછા</button><button id="dl2">⬇ .ged</button><button class="d" id="del">કાઢી નાખો</button></div>
+  <div class="card"><b>નામ</b><div><label class="mu" style="display:block;margin-bottom:3px">નામ</label><input id="g" value="${esc(n.g)}"></div>${lin(r)?`<div class="mu" style="margin-top:8px">${esc(lin(r))}</div>`:''}</div>
+  <div class="card"><b>પુત્રો</b>${chips(ks)}<div class="bar" style="margin-top:8px"><input id="sn" placeholder="પુત્રનું નામ"><button class="p" id="as">+ પુત્ર ઉમેરો</button></div></div>
+  <div class="card"><b>ભાઈઓ</b>${chips(bs)}<div class="bar" style="margin-top:8px"><input id="bn" placeholder="ભાઈનું નામ"><button class="p" id="ab">+ ભાઈ ઉમેરો</button></div></div>`;
+  const upd=()=>{if(!orig.has(r.id))orig.set(r.id,nm(r).g);setName(r,$('#g').value,n.s);touch()};
+  $('#g').oninput=upd;
+  app.querySelectorAll('[data-o]').forEach(c=>c.onclick=()=>{sel=c.dataset.o;render()});
+  $('#bk').onclick=()=>{sel=null;render()};$('#dl2').onclick=download;
+  const add=(inp,fn)=>()=>{const v=$(inp).value.trim();if(!v)return say('નામ લખો.');fn(r,v);say('ઉમેરાયું.');render()};
+  $('#as').onclick=add('#sn',addSon);$('#ab').onclick=add('#bn',addBrother);
+  $('#sn').onkeydown=e=>{if(e.key==='Enter')$('#as').click()};$('#bn').onkeydown=e=>{if(e.key==='Enter')$('#ab').click()};
+  $('#del').onclick=()=>{
+    if(!armed){armed=true;$('#del').textContent=`ખરેખર કાઢવું?${ks.length?` (${ks.length} પુત્રોના જોડાણ તૂટશે)`:''} ફરી દબાવો`;return}
+    delPerson(r);sel=null;say('કાઢી નાખ્યું.');render();
+  };
+}
+addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue=''}});
+boot();
+</script><script>
+if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}
+</script>
+</body></html>
