@@ -1,63 +1,46 @@
 name: Build APK
+
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      BASE: https://naimish008.github.io/Kansagara-family-tree-editor-tool
-      BUBBLEWRAP_KEYSTORE_PASSWORD: android123
-      BUBBLEWRAP_KEY_PASSWORD: android123
     steps:
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
+      - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Install Bubblewrap
-        run: npm install -g @bubblewrap/cli
-      - name: Configure Bubblewrap
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Prepare web files
         run: |
-          mkdir -p ~/.bubblewrap
-          echo "{\"jdkPath\":\"$JAVA_HOME\",\"androidSdkPath\":\"$ANDROID_HOME\"}" > ~/.bubblewrap/config.json
-      - name: Create signing key
+          mkdir www
+          cp index.html www/
+          cp *.ged www/ 2>/dev/null || true
+
+      - name: Create Capacitor project
         run: |
-          mkdir app && cd app
-          keytool -genkeypair -keystore android.keystore -alias android -keyalg RSA -keysize 2048 -validity 10000 -storepass android123 -keypass android123 -dname "CN=Ambo, O=Ambo, C=IN"
-      - name: Write TWA manifest
-        working-directory: app
+          npm init -y
+          npm i @capacitor/core @capacitor/cli @capacitor/android
+          npx cap init VanshVruksh com.kansagara.vansh --web-dir=www
+          npx cap add android
+          npx cap sync
+
+      - name: Build APK
         run: |
-          cat > twa-manifest.json <<EOF
-          {
-            "packageId": "io.github.naimish008.twa",
-            "host": "naimish008.github.io",
-            "name": "Kansagara Ambo Editor",
-            "launcherName": "Ambo Editor",
-            "display": "standalone",
-            "themeColor": "#2f6f5e",
-            "navigationColor": "#2f6f5e",
-            "backgroundColor": "#faf8f4",
-            "enableNotifications": false,
-            "startUrl": "/Kansagara-family-tree-editor-tool/index.html",
-            "iconUrl": "$BASE/icon-512.png",
-            "maskableIconUrl": "$BASE/icon-maskable-512.png",
-            "webManifestUrl": "$BASE/manifest.json",
-            "appVersion": "1",
-            "appVersionCode": 1,
-            "signingKey": { "path": "./android.keystore", "alias": "android" },
-            "fallbackType": "customtabs",
-            "features": {},
-            "orientation": "default"
-          }
-          EOF
-      - name: Build
-        working-directory: app
-        run: |
-          bubblewrap update --skipVersionUpgrade
-          bubblewrap build --skipPwaValidation
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
       - uses: actions/upload-artifact@v4
         with:
-          name: app-apk
-          path: app/*.apk
+          name: app-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
