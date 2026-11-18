@@ -29,7 +29,7 @@ jobs:
       - name: Create Capacitor project
         run: |
           npm init -y
-          npm i @capacitor/core @capacitor/cli @capacitor/android
+          npm i @capacitor/core @capacitor/cli @capacitor/android @capacitor/filesystem @capacitor/share
           npx cap init VanshVruksh com.kansagara.vansh --web-dir=www
           npx cap add android
           npx cap sync
