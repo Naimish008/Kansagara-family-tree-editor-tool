@@ -1,10 +1,6 @@
 <!DOCTYPE html>
 <html lang="gu"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#2f6f5e">
-<link rel="icon" href="icon-192.png">
-<link rel="apple-touch-icon" href="icon-192.png">
 <title>કણસાગરા પરિવાર વંશ વૃક્ષ સુધારા ટૂલ</title>
 <style>
 :root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#faf8f4;--sf:#fff;--tx:#1f2328;--mu:#6b7280;--bd:#e3ded4;--ac:#2f6f5e;--ac2:#e8f2ee;--dn:#b42318}
@@ -27,7 +23,9 @@ button.d{color:var(--dn)}
 ul.lg{padding-left:20px;margin:6px 0 12px}ul.lg li{margin-bottom:6px}
 .mu{color:var(--mu);font-size:13px}
 .drop{border:2px dashed var(--bd);border-radius:12px;padding:28px 14px;text-align:center;background:var(--sf)}
-.tabs{display:flex;gap:6px;margin-bottom:10px}
+.tabs{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.cv{overflow:auto;border:1px solid var(--bd);border-radius:12px;background:var(--sf);max-height:68vh}
+.cv .nd{cursor:pointer}
 .tabs button.on{background:var(--ac2);border-color:var(--ac)}
 .card{border:1px solid var(--bd);border-radius:12px;background:var(--sf);padding:12px;margin-bottom:10px}
 .card b{display:block;margin-bottom:6px}
@@ -53,7 +51,7 @@ ul.lg{padding-left:20px;margin:6px 0 12px}ul.lg li{margin-bottom:6px}
 <div class="ft">સંકલન: કણસાગરા પરિવાર દેવભુવન સમિતિ<br>Designed by Naimish Chandrakant Kansagara</div>
 </div>
 <script>
-let started=false,recs=[],head=[],trailer=[],fname='family.ged',view='list',sel=null,q='',dirty=false,root='all',armed=false,open=new Set(),treeInit=false,tq='',form={n:'',f:'',g:'',root:false},pend=null,changes=[],orig=new Map();
+let started=false,recs=[],head=[],trailer=[],fname='family.ged',view='list',sel=null,q='',dirty=false,root='all',armed=false,open=new Set(),treeInit=false,tq='',form={n:'',f:'',g:'',root:false},pend=null,changes=[],orig=new Map(),chartRoot='',chartD=4,chartZ=1,cq='';
 const $=s=>document.querySelector(s),app=$('#app');
 const nz=s=>(s||'').normalize('NFC').toLowerCase().trim();
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -193,36 +191,238 @@ function chg(){
   const adds=changes.filter(c=>c.k==='add'&&byId(c.id));
   const rens=[...orig].filter(([id,o])=>{const r=byId(id);return r&&nm(r).g!==o&&!adds.some(a=>a.id===id)});
   const dels=changes.filter(c=>c.k==='del');
-  return {adds,rens,dels};
+  const moves=changes.filter(c=>c.k==='move'&&byId(c.id));
+  return {adds,rens,dels,moves};
 }
-const chgN=()=>{const c=chg(),n=c.adds.length+c.rens.length+c.dels.length;return n?` (${n})`:''};
+const chgN=()=>{const c=chg(),n=c.adds.length+c.rens.length+c.dels.length+c.moves.length;return n?` (${n})`:''};
 function logHtml(){
-  const {adds,rens,dels}=chg();
+  const {adds,rens,dels,moves}=chg();
   const tm=t=>new Date(t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
   const sub=t=>t?`<br><span class="mu">${esc(t)}</span>`:'';
   const sec=(t,n,b)=>n?`<div class="card"><b>${t} (${n})</b>${b}</div>`:'';
   const head=`<div class="card"><b>આ સત્રમાં તમે કરેલા સુધારા</b><div class="mu">ફાઇલમાં તમે ઉમેરેલી, નામ બદલેલી અને કાઢી નાખેલી વ્યક્તિઓની યાદી. આ યાદી ફક્ત હાલના સત્ર માટે છે; પેજ રિફ્રેશ કરવાથી ભૂંસાઈ જશે, એટલે ફેરફાર ડાઉનલોડ કરવાનું ભૂલશો નહીં.</div></div>`;
-  const empty=(adds.length+rens.length+dels.length)?'':'<p class="mu">હજી સુધી કોઈ સુધારો કર્યો નથી.</p>';
+  const empty=(adds.length+rens.length+dels.length+moves.length)?'':'<p class="mu">હજી સુધી કોઈ સુધારો કર્યો નથી.</p>';
   return head+empty+
     sec('➕ ઉમેરેલી વ્યક્તિઓ',adds.length,adds.slice().reverse().map(c=>{const r=byId(c.id);return `<div class="li" data-id="${esc(c.id)}"><span>${esc(full(r))}${sub(lin(r)||'મૂળ પુરુષ / પિતા જોડાયેલા નથી')}</span><span class="mu">${tm(c.t)}</span></div>`}).join(''))+
     sec('✎ નામ બદલ્યા',rens.length,rens.map(([id,o])=>{const r=byId(id);return `<div class="li" data-id="${esc(id)}"><span><s class="mu">${esc(o)}</s> → ${esc(full(r))}${sub(lin(r))}</span></div>`}).join(''))+
+    sec('↪ વંશ ખસેડ્યા',moves.length,moves.slice().reverse().map(c=>{const r=byId(c.id);return `<div class="li" data-id="${esc(c.id)}"><span>${esc(full(r))}${sub('પહેલાં: '+c.from)}${sub('હવે: '+(c.to||'મૂળ પુરુષ / પિતા જોડાયેલા નથી'))}</span><span class="mu">${tm(c.t)}</span></div>`}).join(''))+
     sec('🗑 કાઢી નાખેલી વ્યક્તિઓ',dels.length,dels.slice().reverse().map(c=>`<div class="li" style="cursor:default"><span>${esc(c.name)}${sub(c.lin)}</span><span class="mu">${tm(c.t)}</span></div>`).join(''));
+}
+
+function descSet(r){const o=new Set([r.id]),k=[r];while(k.length){const x=k.pop();kids(x).forEach(id=>{if(!o.has(id)){o.add(id);const c=byId(id);if(c)k.push(c)}})}return o}
+function detach(r){
+  const fids=L1(r,'FAMC').map(L=>L.v);
+  r.lines=r.lines.filter(L=>!(L.l===1&&L.t==='FAMC'));
+  fids.forEach(fid=>{const f=byId(fid);if(f)f.lines=f.lines.filter(L=>!(L.l===1&&L.t==='CHIL'&&L.v===r.id))});
+  recs=recs.filter(x=>!(x.type==='FAM'&&fids.includes(x.id)&&!x.lines.some(L=>L.l===1&&['HUSB','WIFE','CHIL'].includes(L.t))));
+}
+function moveUnder(r,p){
+  const before=lin(r)||'મૂળ પુરુષ / પિતા જોડાયેલા નથી';
+  detach(r);
+  if(p){
+    let f=famsOf(p)[0];
+    if(!f){f=newFam();f.lines.push({l:1,x:'',t:slot(p),v:p.id});p.lines.push({l:1,x:'',t:'FAMS',v:f.id})}
+    f.lines.push({l:1,x:'',t:'CHIL',v:r.id});r.lines.push({l:1,x:'',t:'FAMC',v:f.id});
+  }
+  changes.push({k:'move',id:r.id,from:before,to:lin(r),t:Date.now()});touch();
+}
+const rootsOf=()=>indis().filter(r=>!famc(r)&&!(slot(r)==='WIFE'&&famsOf(r).some(f=>byId(val(f,'HUSB')))));
+function chartTree(id,maxD){
+  const seen=new Set();
+  const b=(id,d)=>{const r=byId(id);if(!r||seen.has(id))return null;seen.add(id);
+    const nd={id,d,name:full(r),ch:[],more:0},ks=kids(r);
+    if(maxD&&d+1>=maxD)nd.more=ks.length;else ks.forEach(c=>{const x=b(c,d+1);if(x)nd.ch.push(x)});
+    return nd};
+  return b(id,0);
+}
+const PAL_UI={box:'var(--sf)',st:'var(--bd)',tx:'var(--tx)',ln:'var(--mu)',rf:'var(--ac2)',rs:'var(--ac)'};
+const PAL_EX={box:'#ffffff',st:'#bdb6a6',tx:'#1f2328',ln:'#8a8f96',rf:'#e8f1ee',rs:'#2f6f5e'};
+const FONT='system-ui,"Noto Sans Gujarati",sans-serif';
+function chartBuild(t,pal,inter){
+  const ctx=document.createElement('canvas').getContext('2d');ctx.font='14px '+FONT;
+  const tw=x=>Math.ceil(ctx.measureText(x).width*1.06);
+  const H=30,GY=10,PX=10,GX=34,PAD=16,TOP=PAD+30;
+  const colW=[];let leaf=0,count=0;
+  const walk=n=>{count++;n.t=n.name+(n.more?' ＋'+n.more:'');colW[n.d]=Math.max(colW[n.d]||0,tw(n.t)+PX*2);
+    if(!n.ch.length){n.y=leaf*(H+GY);leaf++}else{n.ch.forEach(walk);n.y=(n.ch[0].y+n.ch[n.ch.length-1].y)/2}};
+  walk(t);
+  const colX=[];let x=PAD;colW.forEach((w,i)=>{colX[i]=x;x+=w+GX});
+  const title=t.name+' નો આંબો';
+  ctx.font='bold 16px '+FONT;
+  const W=Math.max(x-GX+PAD,tw(title)+PAD*2),Ht=TOP+leaf*(H+GY)-GY+PAD;
+  let lines='',boxes='';const NA=[],LA=[];
+  const draw=n=>{
+    const nx=colX[n.d],ny=TOP+n.y;
+    n.ch.forEach(c=>{const cx=colX[c.d],cy=TOP+c.y+H/2,sx=nx+colW[n.d],sy=ny+H/2,mx=sx+GX/2;
+      LA.push({sx,sy,mx,cx,cy});
+      lines+=`<path d="M${sx} ${sy}H${mx}V${cy}H${cx}" style="fill:none;stroke:${pal.ln};stroke-width:1.2"/>`;draw(c)});
+    const isR=n===t;NA.push({t:n.t,x:nx,y:ny,w:colW[n.d],h:H,r:isR,tw:tw(n.t)});
+    boxes+=`<g${inter?` class="nd" data-id="${esc(n.id)}"`:''}><rect x="${nx}" y="${ny}" width="${colW[n.d]}" height="${H}" rx="6" style="fill:${isR?pal.rf:pal.box};stroke:${isR?pal.rs:pal.st};stroke-width:${isR?1.6:1}"/><text x="${nx+PX}" y="${ny+H/2+5}" font-size="14" style="fill:${pal.tx}">${esc(n.t)}</text></g>`;
+  };
+  draw(t);
+  const inner=`<text x="${PAD}" y="${PAD+16}" font-size="16" font-weight="bold" style="fill:${pal.tx}">${esc(title)}</text>`+lines+boxes;
+  return {inner,W:Math.ceil(W),H:Math.ceil(Ht),count,NA,LA,title,PAD,PX,tw:tw(title)};
+}
+const svgDoc=(g,w,h,bg)=>`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${g.W} ${g.H}" font-family='${FONT}'>${bg?`<rect width="${g.W}" height="${g.H}" fill="${bg}"/>`:''}${g.inner}</svg>`;
+function svgToPng(svg,w,h){
+  return new Promise((res,rej)=>{
+    const sc=Math.min(2,8000/w,8000/h,Math.sqrt(24e6/(w*h)));
+    const img=new Image();
+    img.onload=()=>{try{const c=document.createElement('canvas');c.width=Math.max(1,Math.round(w*sc));c.height=Math.max(1,Math.round(h*sc));
+      const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(img,0,0,c.width,c.height);
+      res(c.toDataURL('image/png').split(',')[1])}catch(e){rej(e)}};
+    img.onerror=()=>rej(new Error('image'));
+    img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+  });
+}
+function maskBits(text,w,h,px,bold,baseY,S){
+  const pw=Math.max(1,Math.round(w*S)),ph=Math.max(1,Math.round(h*S));
+  const c=document.createElement('canvas');c.width=pw;c.height=ph;
+  const x=c.getContext('2d');x.font=(bold?'bold ':'')+(px*S)+'px '+FONT;x.fillStyle='#000';x.textBaseline='alphabetic';x.fillText(text,2*S,baseY*S);
+  const d=x.getImageData(0,0,pw,ph).data,rb=(pw+7)>>3,out=new Uint8Array(rb*ph).fill(255);
+  for(let j=0;j<ph;j++)for(let i=0;i<pw;i++){if(d[(j*pw+i)*4+3]>100)out[j*rb+(i>>3)]&=~(128>>(i&7))}
+  return {pw,ph,data:out};
+}
+async function deflateU8(u8){
+  if(typeof CompressionStream==='undefined')return null;
+  try{const cs=new CompressionStream('deflate'),w=cs.writable.getWriter();w.write(u8);w.close();return new Uint8Array(await new Response(cs.readable).arrayBuffer())}catch(e){return null}
+}
+const hex3=h=>[1,3,5].map(i=>(parseInt(h.slice(i,i+2),16)/255).toFixed(3)).join(' ');
+async function chartPdf(g,maskFn){
+  maskFn=maskFn||maskBits;
+  const S=6,enc=new TextEncoder(),parts=[],offs=[];let len=0;
+  const push=u=>{parts.push(u);len+=u.length},str=x=>push(enc.encode(x));
+  const f=n=>(+n).toFixed(2);
+  const k=Math.min(1,14400/Math.max(g.W,g.H));
+  const imgs=[],cache=new Map();
+  const getImg=async(text,w,h,px,bold,baseY)=>{
+    const key=[text,w,h,px,bold].join('|');
+    if(cache.has(key))return cache.get(key);
+    const m=maskFn(text,w,h,px,bold,baseY,S),z=await deflateU8(m.data);
+    imgs.push({pw:m.pw,ph:m.ph,data:z||m.data,z:!!z});
+    const id=imgs.length-1;cache.set(key,id);return id;
+  };
+  const rr=(x,y,w,h,r)=>{const c=r*.5523;
+    return `${f(x+r)} ${f(y)} m ${f(x+w-r)} ${f(y)} l ${f(x+w-r+c)} ${f(y)} ${f(x+w)} ${f(y+r-c)} ${f(x+w)} ${f(y+r)} c ${f(x+w)} ${f(y+h-r)} l ${f(x+w)} ${f(y+h-r+c)} ${f(x+w-r+c)} ${f(y+h)} ${f(x+w-r)} ${f(y+h)} c ${f(x+r)} ${f(y+h)} l ${f(x+r-c)} ${f(y+h)} ${f(x)} ${f(y+h-r+c)} ${f(x)} ${f(y+h-r)} c ${f(x)} ${f(y+r)} l ${f(x)} ${f(y+r-c)} ${f(x+r-c)} ${f(y)} ${f(x+r)} ${f(y)} c h`};
+  const P=PAL_EX;
+  let cs=`q\n${f(k)} 0 0 ${f(-k)} 0 ${f(g.H*k)} cm\n1 j 1 J\n${hex3(P.ln)} RG 1.2 w\n`;
+  g.LA.forEach(l=>{cs+=`${f(l.sx)} ${f(l.sy)} m ${f(l.mx)} ${f(l.sy)} l ${f(l.mx)} ${f(l.cy)} l ${f(l.cx)} ${f(l.cy)} l S\n`});
+  g.NA.forEach(n=>{cs+=`${hex3(n.r?P.rf:P.box)} rg ${hex3(n.r?P.rs:P.st)} RG ${n.r?1.6:1} w ${rr(n.x,n.y,n.w,n.h,6)} B\n`});
+  const ops=[];
+  for(const n of g.NA){const mw=Math.min(n.w-g.PX+2,n.tw+4),id=await getImg(n.t,mw,n.h,14,false,n.h/2+5);ops.push({id,x:n.x+g.PX-2,y:n.y,w:mw,h:n.h,c:P.tx})}
+  {const mw=g.tw+4,id=await getImg(g.title,mw,24,16,true,16);ops.push({id,x:g.PAD-2,y:g.PAD,w:mw,h:24,c:P.tx})}
+  ops.forEach(o=>{cs+=`${hex3(o.c)} rg q ${f(o.w)} 0 0 ${f(-o.h)} ${f(o.x)} ${f(o.y+o.h)} cm /M${o.id} Do Q\n`});
+  cs+='Q\n';
+  const cb=enc.encode(cs);
+  const obj=(n,dict,stream)=>{offs[n]=len;str(`${n} 0 obj\n<< ${dict}${stream?` /Length ${stream.length}`:''} >>\n`);if(stream){str('stream\n');push(stream);str('\nendstream\n')}str('endobj\n')};
+  push(new Uint8Array([37,80,68,70,45,49,46,52,10,37,226,227,207,211,10]));
+  obj(1,'/Type /Catalog /Pages 2 0 R');
+  obj(2,'/Type /Pages /Kids [3 0 R] /Count 1');
+  obj(3,`/Type /Page /Parent 2 0 R /MediaBox [0 0 ${f(g.W*k)} ${f(g.H*k)}] /Contents 4 0 R /Resources << /XObject << ${imgs.map((_,i)=>`/M${i} ${5+i} 0 R`).join(' ')} >> >>`);
+  obj(4,'',cb);
+  imgs.forEach((m,i)=>obj(5+i,`/Type /XObject /Subtype /Image /Width ${m.pw} /Height ${m.ph} /ImageMask true /BitsPerComponent 1${m.z?' /Filter /FlateDecode':''}`,m.data));
+  const xr=len,N=5+imgs.length;
+  str(`xref\n0 ${N}\n0000000000 65535 f \n`);
+  for(let i=1;i<N;i++)str(String(offs[i]).padStart(10,'0')+' 00000 n \n');
+  str(`trailer\n<< /Size ${N} /Root 1 0 R >>\nstartxref\n${xr}\n%%EOF\n`);
+  const all=new Uint8Array(len);let o=0;parts.forEach(u=>{all.set(u,o);o+=u.length});
+  let b='';for(let i=0;i<all.length;i+=0x8000)b+=String.fromCharCode.apply(null,all.subarray(i,i+0x8000));
+  return {b64:btoa(b),bytes:all};
+}
+function renderChart(tabs,tools){
+  const roots=rootsOf();
+  if(!byId(chartRoot))chartRoot=roots[0]?roots[0].id:'';
+  const cur=byId(chartRoot);
+  if(!cur){app.innerHTML=tabs+'<p class="mu">આંબો બનાવવા માટે પહેલા વ્યક્તિઓ ઉમેરો.</p>'+tools;return}
+  const ropt=(roots.some(r=>r.id===cur.id)?'':`<option value="${esc(cur.id)}" selected>${esc(full(cur))}</option>`)+roots.map(r=>`<option value="${esc(r.id)}"${r.id===cur.id?' selected':''}>${esc(full(r))}</option>`).join('');
+  const dopt=[2,3,4,5,6,8,10,0].map(n=>`<option value="${n}"${chartD===n?' selected':''}>${n?n+' પેઢી સુધી':'બધી પેઢી'}</option>`).join('');
+  app.innerHTML=tabs+`<div class="card"><b>🌳 આંબો (વંશ ચિત્ર)</b>
+  <div class="mu" style="margin-bottom:8px">કોઈપણ વ્યક્તિ પસંદ કરો, તેના વંશનું ચિત્ર બનશે. ચિત્ર PNG અથવા SVG તરીકે સેવ કરી શકાય. નામ પર ટેપ કરવાથી એડિટ ખુલશે.</div>
+  <input id="cq" type="search" placeholder="વ્યક્તિનું નામ શોધો…" lang="gu" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(cq)}"><div id="cres"></div>
+  <div class="g" style="margin-top:8px"><div><label>મૂળ વ્યક્તિ</label><select id="cr">${ropt}</select></div><div><label>પેઢી</label><select id="cd">${dopt}</select></div></div>
+  <div class="mu" style="margin-top:8px">હાલ પસંદ: <b>${esc(full(cur))}</b>${lin(cur)?` (${esc(lin(cur))})`:''}</div>
+  <div class="bar" style="margin-top:8px"><button id="zo">−</button><button id="zi">+</button><button id="zf">ફિટ</button><button class="p" id="png">⬇ PNG</button><button id="svg">⬇ SVG</button><button class="p" id="pdf">⬇ PDF</button></div>
+  <div id="cinfo" class="mu" style="margin-bottom:6px"></div><div class="cv" id="cv"></div></div>`+tools;
+  let last=null;
+  const draw=()=>{
+    last=chartBuild(chartTree(chartRoot,chartD),PAL_UI,true);
+    const z=chartZ;
+    $('#cv').innerHTML=svgDoc(last,Math.round(last.W*z),Math.round(last.H*z),'');
+    $('#cinfo').textContent=`${last.count} વ્યક્તિઓ બતાવી.`+(last.count>400?' ચિત્ર ઘણું મોટું છે; પેઢી ઓછી કરો.':'');
+    $('#cv').querySelectorAll('[data-id]').forEach(n=>n.onclick=()=>{sel=n.dataset.id;render()});
+  };
+  const fillRes=()=>{
+    const ql=nz(cq);if(!ql){$('#cres').innerHTML='';return}
+    const rows=indis().filter(r=>nz(full(r)).includes(ql)).slice(0,30);
+    $('#cres').innerHTML=(rows.map(r=>`<div class="li" data-c="${esc(r.id)}"><span>${esc(full(r))}${lin(r)?`<br><span class="mu">${esc(lin(r))}</span>`:''}</span><span class="mu">પુત્રો: ${kids(r).length}</span></div>`).join('')||'<p class="mu">કંઈ મળ્યું નથી.</p>');
+    $('#cres').querySelectorAll('[data-c]').forEach(d=>d.onclick=()=>{chartRoot=d.dataset.c;cq='';chartZ=1;render()});
+  };
+  $('#cq').oninput=e=>{cq=e.target.value;fillRes()};
+  $('#cr').onchange=e=>{chartRoot=e.target.value;chartZ=1;render()};
+  $('#cd').onchange=e=>{chartD=+e.target.value;chartZ=1;render()};
+  $('#zo').onclick=()=>{chartZ=Math.max(.2,chartZ*.8);draw()};
+  $('#zi').onclick=()=>{chartZ=Math.min(3,chartZ*1.25);draw()};
+  $('#zf').onclick=()=>{chartZ=Math.min(1.5,Math.max(.1,($('#cv').clientWidth-4)/last.W));draw()};
+  const slug=chartRoot.replace(/[^A-Za-z0-9]/g,'')||'x';
+  $('#png').onclick=async()=>{
+    const g=chartBuild(chartTree(chartRoot,chartD),PAL_EX,false);
+    say('PNG તૈયાર થાય છે…');
+    try{const b64=await svgToPng(svgDoc(g,g.W,g.H,'#ffffff'),g.W,g.H);const fn='family-tree-'+slug+'.png';outMsg(await saveOut(fn,'image/png',b64,true),fn)}
+    catch(e){say('PNG બની શક્યું નથી. પેઢી ઓછી કરી ફરી પ્રયત્ન કરો અથવા SVG વાપરો.')}
+  };
+  $('#pdf').onclick=async()=>{
+    const g=chartBuild(chartTree(chartRoot,chartD),PAL_EX,false);
+    say('PDF તૈયાર થાય છે…');
+    try{const r=await chartPdf(g);const fn='family-tree-'+slug+'.pdf';outMsg(await saveOut(fn,'application/pdf',r.b64,true),fn)}
+    catch(e){say('PDF બની શક્યું નથી. પેઢી ઓછી કરી ફરી પ્રયત્ન કરો.')}
+  };
+  $('#svg').onclick=async()=>{
+    const g=chartBuild(chartTree(chartRoot,chartD),PAL_EX,false),fn='family-tree-'+slug+'.svg';
+    outMsg(await saveOut(fn,'image/svg+xml',svgDoc(g,g.W,g.H,'#ffffff'),false),fn);
+  };
+  draw();fillRes();
 }
 
 let saved=[];
 const st=(t,c)=>{const e=$('#st');e.textContent=t;e.style.color=c||''};
 function touch(){dirty=true;st('● ફેરફાર થયા છે, હજી ડાઉનલોડ થયા નથી','var(--dn)')}
 function boot(){render()}
+const isNative=()=>{const c=window.Capacitor;return !!(c&&c.isNativePlatform&&c.isNativePlatform())};
+async function saveOut(name,mime,payload,isB64){
+  const cap=window.Capacitor,P=cap&&cap.Plugins;
+  if(isNative()&&P&&P.Filesystem){
+    const o=isB64?{data:payload}:{data:payload,encoding:'utf8'};
+    try{
+      const w=await P.Filesystem.writeFile({path:name,directory:'CACHE',...o});
+      if(P.Share){await P.Share.share({title:name,dialogTitle:'ફાઇલ સેવ કરો',files:[w.uri]});return {s:'ok'}}
+      await P.Filesystem.writeFile({path:name,directory:'DOCUMENTS',...o});return {s:'docs'};
+    }catch(e){
+      const m=String((e&&e.message)||e);
+      if(/cancel/i.test(m))return {s:'cancel'};
+      try{await P.Filesystem.writeFile({path:name,directory:'DOCUMENTS',...o});return {s:'docs'}}
+      catch(e2){return {s:'err',m:String((e2&&e2.message)||e2)}}
+    }
+  }
+  try{
+    let blob;
+    if(isB64){const bin=atob(payload),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);blob=new Blob([u],{type:mime})}
+    else blob=new Blob([payload],{type:mime});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+    return {s:'web'};
+  }catch(e){return {s:'err',m:String((e&&e.message)||e)}}
+}
+function outMsg(r,fn,extra){
+  if(r.s==='cancel')return say('સેવ રદ કર્યું.');
+  if(r.s==='err')return say('સેવ ન થયું: '+r.m);
+  say(({ok:'ફાઇલ તૈયાર: ',docs:'Documents ફોલ્ડરમાં સેવ થયું: ',web:'ડાઉનલોડ શરૂ થયું: '}[r.s]||'')+fn+(extra||''));
+}
 async function download(){
   const base=fname.replace(/\.[^.]+$/,'').replace(/-edited$/,'');
-  const name=base+'-edited.ged',blob=new Blob([ser()],{type:'application/octet-stream'});
-  if(window.claude){
-    try{const d=await claude.use('downloads');if(d){await d.save({filename:name+'.txt',data:blob});dirty=false;st('✓ ડાઉનલોડ થયું','var(--ac)');say('સેવ થયું. ફાઇલનું નામ .txt થી .ged કરી લેજો.');return}}
-    catch(e){if(e&&e.code==='declined')return say('સેવ રદ કર્યું.')}
-  }
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();
-  setTimeout(()=>URL.revokeObjectURL(a.href),5000);
-  dirty=false;st('✓ ડાઉનલોડ થયું','var(--ac)');say('ડાઉનલોડ શરૂ થયું: '+name+' (ડાઉનલોડ ફોલ્ડરમાં જુઓ)');
+  const nat=isNative(),fn=base+'-edited.ged'+(nat?'.txt':'');
+  const r=await saveOut(fn,'application/octet-stream',ser(),false);
+  if(r.s==='ok'||r.s==='docs'||r.s==='web'){dirty=false;st('✓ ફાઇલ તૈયાર થઈ','var(--ac)')}
+  outMsg(r,fn,nat?' — નામ .txt થી .ged કરી લેજો.':'');
 }
 
 function start(){
@@ -236,7 +436,7 @@ function render(){
   armed=false;
   if(!started)return start();
   if(sel)return renderEdit();
-  const tabs=`<div class="tabs"><button data-v="list" class="${view==='list'?'on':''}">વ્યક્તિઓ (${indis().length})</button><button data-v="tree" class="${view==='tree'?'on':''}">ક્રમબદ્ધ વંશ</button><button data-v="log" class="${view==='log'?'on':''}">સુધારાની વિગતો${chgN()}</button></div>`;
+  const tabs=`<div class="tabs"><button data-v="list" class="${view==='list'?'on':''}">વ્યક્તિઓ (${indis().length})</button><button data-v="tree" class="${view==='tree'?'on':''}">ક્રમબદ્ધ વંશ</button><button data-v="chart" class="${view==='chart'?'on':''}">🌳 આંબો</button><button data-v="log" class="${view==='log'?'on':''}">સુધારાની વિગતો${chgN()}</button></div>`;
   const tools=`<div class="bar"><button class="p" id="dl">⬇ અધ્યતન .ged ડાઉનલોડ</button><button id="cp">કોપી</button></div>`;
   if(view==='list'){
     app.innerHTML=tabs+`${addForm()}
@@ -254,6 +454,8 @@ function render(){
   }else if(view==='log'){
     app.innerHTML=tabs+logHtml()+tools;
     app.querySelectorAll('.li[data-id]').forEach(d=>d.onclick=()=>{sel=d.dataset.id;render()});
+  }else if(view==='chart'){
+    renderChart(tabs,tools);
   }else{
     const isRoot=r=>!famc(r)&&!(slot(r)==='WIFE'&&famsOf(r).some(f=>byId(val(f,'HUSB'))));
     app.innerHTML=tabs+`<div class="bar"><input type="search" id="tq" placeholder="વંશમાં નામ શોધો…" lang="gu" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(tq)}"></div><div id="tres"></div>`+tools;
@@ -301,14 +503,38 @@ const chips=(ids,a)=>ids.map(id=>`<span class="chip" data-o="${esc(id)}">${esc(f
 function renderEdit(){
   const r=byId(sel);if(!r){sel=null;return render()}
   const n=nm(r),ks=kids(r),bs=brothers(r);
-  app.innerHTML=`<div class="bar"><button id="bk">← પાછા</button><button id="dl2">⬇ .ged</button><button class="d" id="del">કાઢી નાખો</button></div>
+  app.innerHTML=`<div class="bar"><button id="bk">← પાછા</button><button id="dl2">⬇ .ged</button><button id="ch">🌳 આંબો</button><button class="d" id="del">કાઢી નાખો</button></div>
   <div class="card"><b>નામ</b><div><label class="mu" style="display:block;margin-bottom:3px">નામ</label><input id="g" value="${esc(n.g)}"></div>${lin(r)?`<div class="mu" style="margin-top:8px">${esc(lin(r))}</div>`:''}</div>
   <div class="card"><b>પુત્રો</b>${chips(ks)}<div class="bar" style="margin-top:8px"><input id="sn" placeholder="પુત્રનું નામ"><button class="p" id="as">+ પુત્ર ઉમેરો</button></div></div>
-  <div class="card"><b>ભાઈઓ</b>${chips(bs)}<div class="bar" style="margin-top:8px"><input id="bn" placeholder="ભાઈનું નામ"><button class="p" id="ab">+ ભાઈ ઉમેરો</button></div></div>`;
+  <div class="card"><b>ભાઈઓ</b>${chips(bs)}<div class="bar" style="margin-top:8px"><input id="bn" placeholder="ભાઈનું નામ"><button class="p" id="ab">+ ભાઈ ઉમેરો</button></div></div>
+  <div class="card"><b>↪ વંશવેલો ખસેડો (પિતા બદલો)</b>
+  <div class="mu" style="margin-bottom:8px">હાલ: ${lin(r)?esc(lin(r)):'પિતા જોડાયેલા નથી (મૂળ પુરુષ)'}.<br>ભૂલથી ખોટા પિતા નીચે ગયા હોય તો અહીં સાચા પિતા પસંદ કરો. આ વ્યક્તિ અને તેમના બધા વંશજો નવા પિતા હેઠળ સાથે ખસેડાશે.</div>
+  <input id="mq" type="search" placeholder="નવા પિતાનું નામ શોધો…" lang="gu" autocomplete="off" autocapitalize="off" spellcheck="false"><div id="mres"></div>
+  ${dad(r)?'<button id="mroot" style="margin-top:8px">પિતા દૂર કરો (મૂળ પુરુષ બનાવો)</button>':''}</div>`;
   const upd=()=>{if(!orig.has(r.id))orig.set(r.id,nm(r).g);setName(r,$('#g').value,n.s);touch()};
   $('#g').oninput=upd;
   app.querySelectorAll('[data-o]').forEach(c=>c.onclick=()=>{sel=c.dataset.o;render()});
   $('#bk').onclick=()=>{sel=null;render()};$('#dl2').onclick=download;
+  $('#ch').onclick=()=>{chartRoot=r.id;view='chart';sel=null;render()};
+  const mres=$('#mres');
+  const showRes=()=>{
+    const ql=nz($('#mq').value);if(!ql){mres.innerHTML='';return}
+    const ban=descSet(r);
+    const rows=indis().filter(p=>val(p,'SEX')!=='F'&&!ban.has(p.id)&&nz(full(p)).includes(ql)).slice(0,30);
+    mres.innerHTML=rows.map(p=>`<div class="li" data-m="${esc(p.id)}">${itemHtml(p)}</div>`).join('')||'<p class="mu">કોઈ મળ્યું નથી.</p>';
+    mres.querySelectorAll('[data-m]').forEach(d=>d.onclick=()=>askMove(d.dataset.m));
+  };
+  const askMove=id=>{
+    const p=byId(id);if(!p)return;
+    if(dad(r)===p)return say('આ વ્યક્તિ પહેલેથી આ જ પિતાના પુત્ર છે.');
+    const cnt=descSet(r).size-1;
+    mres.innerHTML=`<div class="card" style="margin-top:8px"><b>"${esc(full(r))}"${cnt?` અને તેમના ${cnt} વંશજો`:''} ને "${esc(full(p))}"${lin(p)?` (${esc(lin(p))})`:''} ના પુત્ર તરીકે ખસેડવા?</b><div class="bar"><button class="p" id="mok">હા, ખસેડો</button><button id="mno">રદ</button></div></div>`;
+    $('#mok').onclick=()=>{moveUnder(r,p);say(`✓ "${full(r)}"${cnt?` અને ${cnt} વંશજો`:''} "${full(p)}" હેઠળ ખસેડાયા.`);render()};
+    $('#mno').onclick=showRes;
+  };
+  $('#mq').oninput=showRes;
+  const mr=$('#mroot');
+  if(mr){let a=false;mr.onclick=()=>{if(!a){a=true;mr.textContent='ખરેખર પિતા દૂર કરવા? ફરી દબાવો';return}moveUnder(r,null);say(`✓ "${full(r)}" હવે મૂળ પુરુષ છે (વંશજો સાથે).`);render()}}
   const add=(inp,fn)=>()=>{const v=$(inp).value.trim();if(!v)return say('નામ લખો.');fn(r,v);say('ઉમેરાયું.');render()};
   $('#as').onclick=add('#sn',addSon);$('#ab').onclick=add('#bn',addBrother);
   $('#sn').onkeydown=e=>{if(e.key==='Enter')$('#as').click()};$('#bn').onkeydown=e=>{if(e.key==='Enter')$('#ab').click()};
@@ -319,7 +545,4 @@ function renderEdit(){
 }
 addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue=''}});
 boot();
-</script><script>
-if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}
-</script>
-</body></html>
+</script></body></html>
