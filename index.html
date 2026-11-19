@@ -51,7 +51,7 @@ ul.lg{padding-left:20px;margin:6px 0 12px}ul.lg li{margin-bottom:6px}
 <div class="ft">સંકલન: કણસાગરા પરિવાર દેવભુવન સમિતિ<br>Designed by Naimish Chandrakant Kansagara</div>
 </div>
 <script>
-let started=false,recs=[],head=[],trailer=[],fname='family.ged',view='list',sel=null,q='',dirty=false,root='all',armed=false,open=new Set(),treeInit=false,tq='',form={n:'',f:'',g:'',root:false},pend=null,changes=[],orig=new Map(),chartRoot='',chartD=4,chartZ=1,cq='';
+let hist=[],started=false,recs=[],head=[],trailer=[],fname='family.ged',view='list',sel=null,q='',dirty=false,root='all',armed=false,open=new Set(),treeInit=false,tq='',form={n:'',f:'',g:'',root:false},pend=null,changes=[],orig=new Map(),chartRoot='',chartD=4,chartZ=1,cq='';
 const $=s=>document.querySelector(s),app=$('#app');
 const nz=s=>(s||'').normalize('NFC').toLowerCase().trim();
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -125,9 +125,66 @@ function delPerson(r){
   touch();
 }
 
+
+/* ---------- જોડણી-સહિષ્ણુ શોધ (fuzzy search) ---------- */
+const FZ_MAP={'ઇ':'ઈ','ઉ':'ઊ','િ':'ી','ુ':'ૂ','ણ':'ન','ળ':'લ','શ':'સ','ષ':'સ','ઁ':'ં','ૈ':'ે','ૌ':'ો','ૅ':'ે','ૉ':'ો','ઐ':'એ','ઔ':'ઓ',
+  'ખ':'ક','ઘ':'ગ','છ':'ચ','ઝ':'જ','ઠ':'ત','થ':'ત','ટ':'ત','ડ':'દ','ઢ':'દ','ધ':'દ','ફ':'પ','ભ':'બ','ઋ':'ર'};
+const _fzc=new Map();
+function fz(s){
+  s=String(s||'');
+  if(_fzc.has(s))return _fzc.get(s);
+  let t=s.normalize('NFC').toLowerCase().replace(/[\u200b-\u200d\u2060\ufeff]/g,'').replace(/઼/g,'');
+  let o='';for(const ch of t)o+=(ch in FZ_MAP)?FZ_MAP[ch]:ch;
+  o=o.replace(/[ંઃ]/g,'').replace(/્/g,'').replace(/ા/g,'ા').replace(/(.)\1+/g,'$1').replace(/\s+/g,' ').trim();
+  if(_fzc.size>5000)_fzc.clear();
+  _fzc.set(s,o);return o;
+}
+function lev(a,b,max){
+  if(Math.abs(a.length-b.length)>max)return max+1;
+  let p=Array.from({length:b.length+1},(_,i)=>i);
+  for(let i=1;i<=a.length;i++){
+    const c=[i];let mn=i;
+    for(let j=1;j<=b.length;j++){const v=Math.min(p[j]+1,c[j-1]+1,p[j-1]+(a[i-1]===b[j-1]?0:1));c.push(v);if(v<mn)mn=v}
+    if(mn>max)return max+1;p=c;
+  }
+  return p[b.length];
+}
+const lim=n=>n<=2?0:n<=4?1:n<=7?2:3;
+function tokOk(t,words){
+  for(const w of words){
+    if(w.includes(t))return true;
+    const L=lim(t.length);if(!L)continue;
+    if(lev(w,t,L)<=L)return true;
+    if(w.length>t.length&&lev(w.slice(0,t.length),t,Math.min(L,1))<=Math.min(L,1))return true;
+  }
+  return false;
+}
+/* સ્કોર: 3 = સીધું મળ્યું, 2 = જોડણી-સમાન, 1 = થોડું અલગ/ભૂલ સાથે, 0 = મળ્યું નહીં */
+function fsc(r,q,ctx){
+  const qs=nz(q);if(!qs)return 0;
+  const name=full(r);
+  if(nz(name).includes(qs))return 3;
+  const kq=fz(q);if(!kq)return 0;
+  const kn=fz(name);
+  if(kn.includes(kq)||kn.replace(/ /g,'').includes(kq.replace(/ /g,'')))return 2;
+  const qt=kq.split(' ').filter(Boolean);
+  const nw=kn.split(' ').filter(Boolean);
+  if(qt.every(t=>tokOk(t,nw)))return 1;
+  if(ctx){
+    const d=dad(r),g=d?dad(d):null;
+    const aw=[...nw,...(d?fz(full(d)).split(' '):[]),...(g?fz(full(g)).split(' '):[])].filter(Boolean);
+    if(qt.every(t=>tokOk(t,aw)))return 1;
+  }
+  return 0;
+}
+function srch(q,ctx,pred){
+  const o=[];indis().forEach((r,i)=>{if(pred&&!pred(r))return;const k=fsc(r,q,ctx);if(k)o.push([k,i,r])});
+  return o.sort((a,b)=>b[0]-a[0]||a[1]-b[1]).map(x=>x[2]);
+}
+
 const nn_=s=>nz(s).replace(/\s+/g,' ');
 const sameN=(r,x)=>nn_(nm(r).g)===nn_(x);
-const hasN=(r,x)=>nn_(nm(r).g).includes(nn_(x));
+const hasN=(r,x)=>fsc(r,x,false)>0;
 function cands(x,gx,exact){
   const t=exact?sameN:hasN;
   return indis().filter(r=>{if(val(r,'SEX')==='F'||!t(r,x))return false;const d=dad(r);return gx?(!!d&&t(d,gx)):!d});
@@ -353,7 +410,7 @@ function renderChart(tabs,tools){
   };
   const fillRes=()=>{
     const ql=nz(cq);if(!ql){$('#cres').innerHTML='';return}
-    const rows=indis().filter(r=>nz(full(r)).includes(ql)).slice(0,30);
+    const rows=srch(cq,true).slice(0,30);
     $('#cres').innerHTML=(rows.map(r=>`<div class="li" data-c="${esc(r.id)}"><span>${esc(full(r))}${lin(r)?`<br><span class="mu">${esc(lin(r))}</span>`:''}</span><span class="mu">પુત્રો: ${kids(r).length}</span></div>`).join('')||'<p class="mu">કંઈ મળ્યું નથી.</p>');
     $('#cres').querySelectorAll('[data-c]').forEach(d=>d.onclick=()=>{chartRoot=d.dataset.c;cq='';chartZ=1;render()});
   };
@@ -436,6 +493,7 @@ function render(){
   armed=false;
   if(!started)return start();
   if(sel)return renderEdit();
+  hist=[];
   const tabs=`<div class="tabs"><button data-v="list" class="${view==='list'?'on':''}">વ્યક્તિઓ (${indis().length})</button><button data-v="tree" class="${view==='tree'?'on':''}">ક્રમબદ્ધ વંશ</button><button data-v="chart" class="${view==='chart'?'on':''}">🌳 આંબો</button><button data-v="log" class="${view==='log'?'on':''}">સુધારાની વિગતો${chgN()}</button></div>`;
   const tools=`<div class="bar"><button class="p" id="dl">⬇ અધ્યતન .ged ડાઉનલોડ</button><button id="cp">કોપી</button></div>`;
   if(view==='list'){
@@ -443,7 +501,7 @@ function render(){
     <div class="bar"><input type="search" id="q" placeholder="શોધો…" lang="gu" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(q)}"></div><div id="lres"></div>`+tools;
     const fillList=()=>{
       const ql=nz(q);
-      const rows=indis().filter(r=>!ql||nz(full(r)).includes(ql));
+      const rows=ql?srch(q,true):indis();
       $('#lres').innerHTML=(rows.slice(0,300).map(r=>`<div class="li" data-id="${esc(r.id)}"><span>${esc(full(r))}${lin(r)?`<br><span class="mu">${esc(lin(r))}</span>`:''}</span><span class="mu">${esc(r.id)}</span></div>`).join('')||'<p class="mu">કંઈ મળ્યું નથી.</p>')+
       (rows.length>300?'<p class="mu">પહેલા 300 બતાવ્યા છે. શોધ વડે ફિલ્ટર કરો.</p>':'');
       app.querySelectorAll('.li').forEach(d=>d.onclick=()=>{sel=d.dataset.id;render()});
@@ -469,7 +527,7 @@ function render(){
       const trees=list.map((r,i)=>build(r.id,0,String(i+1))).filter(Boolean);
       const tl=nz(tq);
       let total=0,found=0;
-      const hit=nd=>{nd.m=!!tl&&nz(nd.name).includes(tl);nd.s=nd.m;nd.ch.forEach(c=>{if(hit(c))nd.s=true});return nd.s};
+      const hit=nd=>{nd.m=!!tl&&fsc(byId(nd.id),tq,false)>0;nd.s=nd.m;nd.ch.forEach(c=>{if(hit(c))nd.s=true});return nd.s};
       const cnt=nd=>1+nd.ch.reduce((a,c)=>a+cnt(c),0);
       trees.forEach(t=>{total+=cnt(t);if(tl)hit(t)});
       const draw=nd=>{
@@ -503,8 +561,10 @@ const chips=(ids,a)=>ids.map(id=>`<span class="chip" data-o="${esc(id)}">${esc(f
 function renderEdit(){
   const r=byId(sel);if(!r){sel=null;return render()}
   const n=nm(r),ks=kids(r),bs=brothers(r);
+  const fa=dad(r),gr=fa?dad(fa):null,elder=(l,p)=>`<span class="chip" data-o="${esc(p.id)}">${l}: <b style="display:inline;margin:0">${esc(full(p))}</b> ↗</span>`;
   app.innerHTML=`<div class="bar"><button id="bk">← પાછા</button><button id="dl2">⬇ .ged</button><button id="ch">🌳 આંબો</button><button class="d" id="del">કાઢી નાખો</button></div>
   <div class="card"><b>નામ</b><div><label class="mu" style="display:block;margin-bottom:3px">નામ</label><input id="g" value="${esc(n.g)}"></div>${lin(r)?`<div class="mu" style="margin-top:8px">${esc(lin(r))}</div>`:''}</div>
+  <div class="card"><b>પિતા અને દાદા</b>${fa?elder('પિતા',fa):'<span class="mu">પિતા જોડાયેલા નથી (મૂળ પુરુષ)</span>'}${gr&&gr!==r?elder('દાદા',gr):''}<div class="mu" style="margin-top:6px">નામ પર ટેપ કરો — તેમની પ્રોફાઇલ ખુલશે, ત્યાં વિગતો સુધારી કે ઉમેરી શકાશે.</div></div>
   <div class="card"><b>પુત્રો</b>${chips(ks)}<div class="bar" style="margin-top:8px"><input id="sn" placeholder="પુત્રનું નામ"><button class="p" id="as">+ પુત્ર ઉમેરો</button></div></div>
   <div class="card"><b>ભાઈઓ</b>${chips(bs)}<div class="bar" style="margin-top:8px"><input id="bn" placeholder="ભાઈનું નામ"><button class="p" id="ab">+ ભાઈ ઉમેરો</button></div></div>
   <div class="card"><b>↪ વંશવેલો ખસેડો (પિતા બદલો)</b>
@@ -513,14 +573,14 @@ function renderEdit(){
   ${dad(r)?'<button id="mroot" style="margin-top:8px">પિતા દૂર કરો (મૂળ પુરુષ બનાવો)</button>':''}</div>`;
   const upd=()=>{if(!orig.has(r.id))orig.set(r.id,nm(r).g);setName(r,$('#g').value,n.s);touch()};
   $('#g').oninput=upd;
-  app.querySelectorAll('[data-o]').forEach(c=>c.onclick=()=>{sel=c.dataset.o;render()});
-  $('#bk').onclick=()=>{sel=null;render()};$('#dl2').onclick=download;
+  app.querySelectorAll('[data-o]').forEach(c=>c.onclick=()=>{hist.push(sel);sel=c.dataset.o;render();scrollTo(0,0)});
+  $('#bk').onclick=()=>{sel=hist.length?hist.pop():null;render();scrollTo(0,0)};$('#dl2').onclick=download;
   $('#ch').onclick=()=>{chartRoot=r.id;view='chart';sel=null;render()};
   const mres=$('#mres');
   const showRes=()=>{
     const ql=nz($('#mq').value);if(!ql){mres.innerHTML='';return}
     const ban=descSet(r);
-    const rows=indis().filter(p=>val(p,'SEX')!=='F'&&!ban.has(p.id)&&nz(full(p)).includes(ql)).slice(0,30);
+    const rows=srch($('#mq').value,true,p=>val(p,'SEX')!=='F'&&!ban.has(p.id)).slice(0,30);
     mres.innerHTML=rows.map(p=>`<div class="li" data-m="${esc(p.id)}">${itemHtml(p)}</div>`).join('')||'<p class="mu">કોઈ મળ્યું નથી.</p>';
     mres.querySelectorAll('[data-m]').forEach(d=>d.onclick=()=>askMove(d.dataset.m));
   };
